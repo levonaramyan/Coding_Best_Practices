@@ -243,3 +243,12 @@ public class ReportsController : ControllerBase
     }
 }
 ```
+
+## The result
+Now once we execute this controller by passing 0 in teamId and userId, it will fetch us the progress report of all teams and all users.
+
+Here is the result:
+![result](https://github.com/levonaramyan/Coding_Best_Practices/blob/master/Execute%20a%20Stored%20Procedure%20that%20gets%20Data%20from%20Multiple%20Tables%20in%20EF%20Core/result.png)
+
+## Reference
+This piece of code is gathered from [this](https://medium.com/hackernoon/execute-a-stored-procedure-that-gets-data-from-multiple-tables-in-ef-core-1638a7f010c) article. My thanks to the author.
