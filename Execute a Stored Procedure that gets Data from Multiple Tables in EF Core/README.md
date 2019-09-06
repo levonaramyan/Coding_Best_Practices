@@ -184,3 +184,62 @@ Lets create a few extension methods that will help us irrespective of any patter
 
 **SprocRepositoryExtensions.cs**
 ![Repository Extension](https://github.com/levonaramyan/Coding_Best_Practices/blob/master/Execute%20a%20Stored%20Procedure%20that%20gets%20Data%20from%20Multiple%20Tables%20in%20EF%20Core/Repository_Extension.png)
+With this, the repository implementation becomes quite simple.
+
+**SprocRepository.cs**
+```csharp
+public class SprocRepository : ISprocRepository
+{
+    private readonly TaskPlannerDbContext _dbContext;
+    public SprocRepository(TaskPlannerDbContext dbContext)
+    {
+        _dbContext = dbContext;    
+    }
+    public DbCommand GetStoredProcedure(
+        string name, 
+        params (string, object)[] nameValueParams)
+    {
+        return _dbContext
+            .LoadStoredProcedure(name)
+            .WithSqlParams(nameValueParams);
+    }
+    public DbCommand GetStoredProcedure(string name)
+    {
+        return _dbContext.LoadStoredProcedure(name);
+    }
+}
+```
+
+Once we have got DbCommand from GetStoredProcedure we can call the ExecuteStoredProcedure or ExecuteStoredProcedureAsync from the extension method. I am going to take the liberty to inject repository directly into the controller for now. You can have a business layer abstraction if you want to modify the response if for e.g. you want to calculate the percentage of open, in progress and done tasks.
+
+**ReportsController.cs**
+```csharp
+[Route("api/[controller]")]
+[ApiController]
+public class ReportsController : ControllerBase
+{
+    private readonly ISprocRepository _repository;
+    public ReportsController(ISprocRepository repository)
+    {
+        _repository = repository;
+    }
+    [HttpGet("Progress")]
+    public Task<IList<ProgressReportEntity>> GetProgressReport(
+        [FromQuery] int? teamId, 
+        [FromQuery] int? userId) 
+    {
+        (teamId, userId) = (teamId != 0 
+                           ? teamId 
+                           : null, 
+                           userId != 0 
+                           ? userId 
+                           : null);
+        return _repository
+        .GetStoredProcedure("[dbo].[Sp_ProgressReport]")
+        .WithSqlParams(
+            (nameof(teamId), teamId), 
+            (nameof(userId), userId))
+        .ExecuteStoredProcedureAsync<ProgressReportEntity>();
+    }
+}
+```
