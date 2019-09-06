@@ -1,14 +1,14 @@
-#Execute a Stored Procedure that gets Data from Multiple Tables in EF Core
+# Execute a Stored Procedure that gets Data from Multiple Tables in EF Core
 
 In EF Core there is not quite yet an elegant way to fetch data from multiple tables by a stored procedure. Lets build one.
 
-##Why am I writing this.
+## Why am I writing this.
 The above issue is the reason why I feel this article is necessary. At the time of writing this article,
 EF Core’s prescribed way of executing a stored procedure is context.Blogs.FromSql("EXEC Sp_YourSp")
 but that is only possible if your stored procedure returns data from a particular DB Set (one table or one entity).
 Lets look at how we can work it around until the above issue is resolved if a stored procedure gets data from multiple tables.
 
-##The setup
+## The setup
 We are going to recreate a scenario where we need to do just the above. We are going to write a small ‘Todo’ API.
 Here is the [gist](https://gist.github.com/saurabhpati/23ed20815545baebee01c601f6591e53) link containing all the files shown below
 
@@ -135,3 +135,52 @@ public interface IEntityBase
 ```
 
 Now lets say we need to see a progress report where we need the information of teams and users along with the count of all tasks and the tasks which are in todo, in progress and done state. A stored procedure that accepts optional teamId and userId to get the progress report of all/one team(s) fits the solution to our requirement.
+
+## The stored procedure
+Lets create a stored procedure as discussed above.
+
+**Sp_ProgressReport.sql**
+```code
+CREATE PROCEDURE [dbo].[Sp_ProgressReport]
+@teamId INT NULL,
+@userId INT NULL
+AS
+  SELECT ut.TeamId, ut.UserId, COUNT(t.Id) TotalTasks,
+  SUM(CASE WHEN t.StatusId = 1 THEN 1 ELSE 0 END) Todo,
+  SUM(CASE WHEN t.StatusId = 2 THEN 1 ELSE 0 END) InProgress,
+  SUM(CASE WHEN t.StatusId = 3 THEN 1 ELSE 0 END) Done
+  FROM
+  [UserTeam] ut
+  JOIN [TaskItem] t
+  ON ut.UserId = t.UserId
+  JOIN [Status] s
+  ON t.StatusId = s.Id
+  WHERE ut.TeamId = @teamId OR @teamId IS NULL
+  AND 
+  ut.UserId = @userId OR @userId IS NULL
+  GROUP BY ut.TeamId, ut.UserId, s.Id
+GO
+```
+## The solution
+Lets create an entity which is the response of this stored procedure. You can omit creating an entity if you want to as you can directly map the response to an object or dynamic but it helps to have an entity when
+
+* You have to modify or process the response to apply business logic.
+* There are several related responses of such kind and you want to use some object oriented principles to reuse your entity.
+
+**ProgressReportEntity.cs**
+```csharp
+public class ProgressReportEntity
+{
+    public int TeamId { get; set; }
+    public int UserId { get; set; }
+    public int TotalTasks { get; set; }
+    public int Todo { get; set; }
+    public int InProgress { get; set; }
+    public int Done { get; set; }
+}
+```
+We are going to create a repository for executing the stored procedure. I am not too great a fan of repositories but a lot of developers find it helpful, so I am going to stick to the repository pattern for now. You can create whatever data access abstraction you like.
+Lets create a few extension methods that will help us irrespective of any pattern we follow.
+
+**SprocRepositoryExtensions.cs**
+![Repository Extension](https://github.com/levonaramyan/Coding_Best_Practices/blob/master/Execute%20a%20Stored%20Procedure%20that%20gets%20Data%20from%20Multiple%20Tables%20in%20EF%20Core/Repository_Extension.png)
