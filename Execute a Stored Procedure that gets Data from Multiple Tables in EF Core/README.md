@@ -14,7 +14,7 @@ Here is the [gist](https://gist.github.com/saurabhpati/23ed20815545baebee01c601f
 
 **Entities/Models**
 **User.cs**
-```Code
+```csharp
 public class User : EntityBase
 {
     public User()
